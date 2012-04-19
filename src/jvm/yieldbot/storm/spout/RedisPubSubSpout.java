@@ -38,6 +38,7 @@ public class RedisPubSubSpout extends BaseRichSpout {
 		this.port = port;
 		this.pattern = pattern;
 		this.timeout = -1;
+		this.password = null;
 	}
 
         public RedisPubSubSpout(String host, int port, String pattern, int timeout) {
@@ -45,6 +46,7 @@ public class RedisPubSubSpout extends BaseRichSpout {
 		this.port = port;
 		this.pattern = pattern;
 		this.timeout = timeout;
+		this.password = null;
 	}
 
         public RedisPubSubSpout(String host, int port, String pattern, int timeout, String password) {
