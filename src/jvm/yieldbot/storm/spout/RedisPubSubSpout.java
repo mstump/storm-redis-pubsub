@@ -20,36 +20,54 @@ import backtype.storm.tuple.Fields;
 import backtype.storm.utils.Utils;
 
 public class RedisPubSubSpout extends BaseRichSpout {
-	
+
 	static final long serialVersionUID = 737015318988609460L;
 	static Logger LOG = Logger.getLogger(RedisPubSubSpout.class);
-	
+
 	SpoutOutputCollector _collector;
 	final String host;
 	final int port;
+	final int timeout;
 	final String pattern;
+	final String password;
 	LinkedBlockingQueue<String> queue;
 	JedisPool pool;
-	
+
 	public RedisPubSubSpout(String host, int port, String pattern) {
 		this.host = host;
 		this.port = port;
 		this.pattern = pattern;
+		this.timeout = -1;
 	}
-	
+
+        public RedisPubSubSpout(String host, int port, String pattern, int timeout) {
+		this.host = host;
+		this.port = port;
+		this.pattern = pattern;
+		this.timeout = timeout;
+	}
+
+        public RedisPubSubSpout(String host, int port, String pattern, int timeout, String password) {
+		this.host = host;
+		this.port = port;
+		this.pattern = pattern;
+		this.timeout = timeout;
+		this.password = password;
+	}
+
 	class ListenerThread extends Thread {
 		LinkedBlockingQueue<String> queue;
 		JedisPool pool;
 		String pattern;
-		
+
 		public ListenerThread(LinkedBlockingQueue<String> queue, JedisPool pool, String pattern) {
 			this.queue = queue;
 			this.pool = pool;
 			this.pattern = pattern;
 		}
-		
+
 		public void run() {
-			
+
 			JedisPubSub listener = new JedisPubSub() {
 
 				@Override
@@ -65,28 +83,28 @@ public class RedisPubSubSpout extends BaseRichSpout {
 				@Override
 				public void onPSubscribe(String channel, int subscribedChannels) {
 					// TODO Auto-generated method stub
-					
+
 				}
 
 				@Override
 				public void onPUnsubscribe(String channel, int subscribedChannels) {
 					// TODO Auto-generated method stub
-					
+
 				}
 
 				@Override
 				public void onSubscribe(String channel, int subscribedChannels) {
 					// TODO Auto-generated method stub
-					
+
 				}
 
 				@Override
 				public void onUnsubscribe(String channel, int subscribedChannels) {
 					// TODO Auto-generated method stub
-					
+
 				}
 			};
-			
+
 			Jedis jedis = pool.getResource();
 			try {
 				jedis.psubscribe(listener, pattern);
@@ -95,15 +113,24 @@ public class RedisPubSubSpout extends BaseRichSpout {
 			}
 		}
 	};
-	
+
 	public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
 		_collector = collector;
 		queue = new LinkedBlockingQueue<String>(1000);
-		pool = new JedisPool(new JedisPoolConfig(),host,port);
-		
-		ListenerThread listener = new ListenerThread(queue,pool,pattern);
+
+		if (timeout != -1 && password != null) {
+		    pool = new JedisPool(new JedisPoolConfig(), host, port, timeout, password);
+	        }
+		else if (timeout != -1) {
+		    pool = new JedisPool(new JedisPoolConfig(), host, port, timeout);
+		}
+		else {
+		    pool = new JedisPool(new JedisPoolConfig(), host, port);
+		}
+
+		ListenerThread listener = new ListenerThread(queue, pool, pattern);
 		listener.start();
-		
+
 	}
 
 	public void close() {
@@ -115,7 +142,7 @@ public class RedisPubSubSpout extends BaseRichSpout {
         if(ret==null) {
             Utils.sleep(50);
         } else {
-            _collector.emit(tuple(ret));            
+            _collector.emit(tuple(ret));
         }
 	}
 
